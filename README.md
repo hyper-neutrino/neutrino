@@ -1,2 +1,2 @@
 # neutrino
-Neutrino Practical Programming Language
+Neutrino Recreational Programming Language
