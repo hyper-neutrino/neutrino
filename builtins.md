@@ -1,4 +1,7 @@
 # Implemented Functions
+- Increment (`▲`)
+- Decrement (`▼`)
+- Remainder (`%`)
 - Addition (`+`)
 - Pair (`,`)
 - All Equal (`E`)
@@ -7,7 +10,6 @@
 # Planned Functions
 - Multiplication (`*`)
 - Exponentiation (`ⁿ`)
-- Remainder (`%`)
 - Magnitude (`║`)
 - Division (`÷`)
 - Floor Division (`:`)
@@ -16,6 +18,10 @@
 - Group
 - Sort
 - Deduplicate
+- Boolean Logic
+- Root
+- Integer Partition
+- List partition
 
 # Implemented Operators
 - Swap Arguments (`@`)
@@ -26,3 +32,5 @@
 - Group By
 - Sort By
 - Deduplicate By
+- Outer Product
+- Index of First Satisfactory Element
