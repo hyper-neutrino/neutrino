@@ -23,6 +23,7 @@
 - Root
 - Integer Partition
 - List partition
+- Set Functions: Union (`u`) Intersection (`∩`) Strict Subset (`c`) Subset (`ç`) Set Difference (``\``)
 
 # Implemented Operators
 - Swap Arguments (`@`)
