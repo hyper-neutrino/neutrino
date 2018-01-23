@@ -36,6 +36,8 @@ def ntype(var):
 		return sympy.Rational(var.real) + sympy.Rational(var.imag) * sympy.I
 	return var
 
+# TODO class Vectorizer;
+
 class Function:
 	def __init__(self, arity, function, vectorize = 0):
 		self.arity = arity
@@ -110,11 +112,11 @@ functions = {
 	'◙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'♂'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'♀'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♪'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♫'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'☼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'►'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'◄'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	'♪'  : None,
+	'♫'  : None,
+	'☼'  : None,
+	'►'  : None,
+	'◄'  : None,
 	'↕'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'‼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'¶'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -134,12 +136,12 @@ functions = {
 	'"'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'#'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'$'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'%'  : Function(arity = 2, function = NamedFunction(name = "<Remainder>", function = lambda x, y: x % y), vectorize = 3),
+	'%'  : Function(arity = 2, function = NamedFunction(name = "<Remainder>", function = operator.mod), vectorize = 3),
 	'&'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	"'"  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'('  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	')'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'*'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	'*'  : Function(arity = 2, function = NamedFunction(name = "<Multiplication>", function = operator.mul), vectorize = 3),
 	'+'  : Function(arity = 2, function = NamedFunction(name = "<Addition>", function = operator.add), vectorize = 3),
 	','  : Function(arity = 2, function = NamedFunction(name = "<Pair>", function = lambda x, y: (x, y))),
 	'-'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -155,7 +157,7 @@ functions = {
 	'7'  : None,
 	'8'  : None,
 	'9'  : None,
-	':'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	':'  : Function(arity = 2, function = NamedFunction(name = "<Floor Division>", function = operator.floordiv), vectorize = 3),
 	';'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'<'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'='  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -282,8 +284,8 @@ functions = {
 	'╢'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╖'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╕'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╣'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'║'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	'╣'  : Function(arity = 2, function = NamedFunction(name = "<Left Argument>", function = lambda x, y: x)),
+	'║'  : Function(arity = 1, function = NamedFunction(name = "<Magnitude>", function = lambda: 0)),
 	'╗'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╝'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╜'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -301,7 +303,7 @@ functions = {
 	'╔'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╩'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╦'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	'╠'  : Function(arity = 2, function = NamedFunction(name = "<Get Right Argument>", function = lambda x, y: y)),
 	'═'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╧'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -309,7 +311,7 @@ functions = {
 	'╤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╘'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	'╘'  : Function(arity = 2, function = NamedFunction(name = "<Logarithm>", function = sympy.log), vectorize = 3),
 	'╒'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'╫'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -343,14 +345,14 @@ functions = {
 	'≤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'⌠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'⌡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'÷'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	'÷'  : Function(arity = 2, function = NamedFunction(name = "<Division>", function = operator.truediv), vectorize = 3),
 	'≈'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'°'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'∙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'·'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	'√'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ⁿ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'²'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+	'ⁿ'  : Function(arity = 2, function = NamedFunction(name = "<Exponentiation>", function = operator.pow), vectorize = 3),
+	'²'  : Function(arity = 1, function = NamedFunction(name = "<Square>", function = lambda x: x * x), vectorize = 1),
 	'■'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 	' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 }
@@ -616,9 +618,9 @@ def evaluate(links, arguments):
     links = links or [[]]
     link = links[-1]
     if len(arguments) >= 1:
-        functions["⍺"] = (0, (lambda v: lambda: v)(arguments[0]))
+        functions["┤"] = (0, (lambda v: lambda: v)(arguments[0]))
     if len(arguments) >= 2:
-        functions["ε"] = (0, (lambda v: lambda: v)(arguments[1]))
+        functions["├"] = (0, (lambda v: lambda: v)(arguments[1]))
     # TODO other argument getters
     if len(arguments) >= 2:
         return dydeval(link, arguments[0], arguments[1], links = links, index = len(links) - 1)
