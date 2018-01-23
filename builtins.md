@@ -13,6 +13,7 @@
 - Magnitude (`║`)
 - Division (`÷`)
 - Floor Division (`:`)
+- Factorial (`!`)
 - Equality (`e`, `=`)
 - Inequality (`n`, `⌐`, `<`, `≤`, `≥`, `>`)
 - Group
