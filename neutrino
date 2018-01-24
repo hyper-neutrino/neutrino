@@ -21,427 +21,437 @@ pr_args = [arg for arg in arguments if arg not in cl_args]
 cl = []
 
 for arg in cl_args:
-	if arg[1] == "-":
-		cl.append(arg[2:])
-	else:
-		cl += list(arg[1:])
+    if arg[1] == "-":
+        cl.append(arg[2:])
+    else:
+        cl += list(arg[1:])
 
-for argument in cl_args:
-	pass # do something with the arguments
+SYMPY = True
 
-import re, math, operator, sympy, sys, locale, functools, itertools, random
+for argument in cl:
+    if argument == "native" or argument == "n":
+        SYMPY = False
+
+if SYMPY: import sympy
+
+import re, math, operator, sys, locale, functools, itertools, random
 
 pyrange = range
-sqrt = sympy.sqrt
+if SYMPY: sqrt = sympy.sqrt
 
 def range(*a):
-	return list(map(sympy.Integer, pyrange(*a)))
+    if SYMPY:
+        return list(map(sympy.Integer, pyrange(*a)))
+    else:
+        return pyrange(*a)
 
 def try_eval(string):
-	try:
-		return ntype(eval(string))
-	except:
-		return list(string)
+    try:
+        return ntype(eval(string))
+    except:
+        return list(string)
 
 def ntype(var):
-	if hasattr(var, "__iter__"):
-		return list(map(ntype, var))
-	if isinstance(var, (bool, int, float)):
-		return sympy.Rational(str(float(var)))
-	if isinstance(var, complex):
-		return sympy.Rational(var.real) + sympy.Rational(var.imag) * sympy.I
-	return var
+    if not SYMPY:
+        return var
+    if hasattr(var, "__iter__"):
+        return list(map(ntype, var))
+    if isinstance(var, (bool, int, float)):
+        return sympy.Rational(str(float(var)))
+    if isinstance(var, complex):
+        return sympy.Rational(var.real) + sympy.Rational(var.imag) * sympy.I
+    return var
 
 def depth(nobj):
-	if isinstance(nobj, list):
-		return max(map(depth, nobj)) + 1
-	else:
-		return 0
+    if isinstance(nobj, list):
+        return max(map(depth, nobj)) + 1
+    else:
+        return 0
 
 class Vectorizer:
-	def __init__(self, max_level = -1, min_depth = 0, left = True, right = True):
-		self.ml = max_level
-		self.md = min_depth
-		self.vl = left
-		self.vr = right
-	def __call__(self, arity):
-		if arity == 0:
-			return lambda f: f
-		if arity == 1:
-			def provider(f):
-				def inner(a, t = 0):
-					if t < self.ml and depth(a) > self.md and self.vl:
-						return [inner(e, t + 1) for e in a]
-					else:
-						return f(a)
-				return inner
-			return provider
-		if arity == 2:
-			def provider(f):
-				def inner(x, y, t = 0):
-					if t < self.ml:
-						if depth(a) > self.md < depth(b) and self.vl and self.vr:
-							return [inner(i, j, t + 1) for i, j in zip(x, y)] + x[len(y):] + y[len(x):]
-						elif depth(a) > self.md and self.vl:
-							return [inner(e, y, t + 1) for e in x]
-						elif depth(b) > self.md and self.vr:
-							return [inner(x, e, t + 1) for e in y]
-					return f(x, y)
-				return inner
-			return provider
+    def __init__(self, max_level = -1, min_depth = 0, left = True, right = True):
+        self.ml = max_level
+        self.md = min_depth
+        self.vl = left
+        self.vr = right
+    def __call__(self, arity):
+        if arity == 0:
+            return lambda f: f
+        if arity == 1:
+            def provider(f):
+                def inner(a, t = 0):
+                    if t < self.ml and depth(a) > self.md and self.vl:
+                        return [inner(e, t + 1) for e in a]
+                    else:
+                        return f(a)
+                return inner
+            return provider
+        if arity == 2:
+            def provider(f):
+                def inner(x, y, t = 0):
+                    if t < self.ml:
+                        if depth(a) > self.md < depth(b) and self.vl and self.vr:
+                            return [inner(i, j, t + 1) for i, j in zip(x, y)] + x[len(y):] + y[len(x):]
+                        elif depth(a) > self.md and self.vl:
+                            return [inner(e, y, t + 1) for e in x]
+                        elif depth(b) > self.md and self.vr:
+                            return [inner(x, e, t + 1) for e in y]
+                    return f(x, y)
+                return inner
+            return provider
 
 class Function:
-	def __init__(self, arity, function, vectorizer = None, vectorize = 0):
-		self.arity = arity
-		self.function = vectorizer(self.arity)(function) if vectorizer else function
-		self.vectorize = (vectorizer is None) * vectorize
-	def __repr__(self):
-		return "[Function(%s) %s]" % (["Nilad", "Monad", "Dyad"][self.arity], self.function)
-	def __call__(self, larg = 0, rarg = 0):
-		if self.arity == 0:
-			return self.function()
-		if self.arity == 1:
-			if self.vectorize & 1 and isinstance(larg, list):
-				return [self(l) for l in larg]
-			else:
-				return self.function(larg)
-		if self.arity == 2:
-			if self.vectorize & 3 and isinstance(larg, list) and isinstance(rarg, list):
-				return [self(l, r) for l, r in zip(larg, rarg)] + larg[len(rarg):] + rarg[len(larg):]
-			elif self.vectorize & 1 and isinstance(larg, list):
-				return [self(l, rarg) for l in larg]
-			elif self.vectorize & 2 and isinstance(rarg, list):
-				return [self(larg, r) for r in rarg]
-			else:
-				return self.function(larg, rarg)
+    def __init__(self, arity, function, vectorizer = None, vectorize = 0):
+        self.arity = arity
+        self.function = vectorizer(self.arity)(function) if vectorizer else function
+        self.vectorize = (vectorizer is None) * vectorize
+    def __repr__(self):
+        return "[Function(%s) %s]" % (["Nilad", "Monad", "Dyad"][self.arity], self.function)
+    def __call__(self, larg = 0, rarg = 0):
+        if self.arity == 0:
+            return self.function()
+        if self.arity == 1:
+            if self.vectorize & 1 and isinstance(larg, list):
+                return [self(l) for l in larg]
+            else:
+                return self.function(larg)
+        if self.arity == 2:
+            if self.vectorize & 3 and isinstance(larg, list) and isinstance(rarg, list):
+                return [self(l, r) for l, r in zip(larg, rarg)] + larg[len(rarg):] + rarg[len(larg):]
+            elif self.vectorize & 1 and isinstance(larg, list):
+                return [self(l, rarg) for l in larg]
+            elif self.vectorize & 2 and isinstance(rarg, list):
+                return [self(larg, r) for r in rarg]
+            else:
+                return self.function(larg, rarg)
 
 class Operator:
-	def __init__(self, function):
-		self.function = function
-	def __repr__(self):
-		return "[Operator %s]" % self.function
-	def __call__(self, s):
-		return self.function(s)
+    def __init__(self, function):
+        self.function = function
+    def __repr__(self):
+        return "[Operator %s]" % self.function
+    def __call__(self, s):
+        return self.function(s)
 
 class NamedFunction:
-	def __init__(self, name, function):
-		self.name = name
-		self.function = function
-	def __repr__(self):
-		return "[NamedFunction %s]" % self.name
-	def __call__(self, *a, **k):
-		return self.function(*a, **k)
+    def __init__(self, name, function):
+        self.name = name
+        self.function = function
+    def __repr__(self):
+        return "[NamedFunction %s]" % self.name
+    def __call__(self, *a, **k):
+        return self.function(*a, **k)
 
 class Attempts:
-	def __init__(self, *functions):
-		self.functions = functions
-	def __call__(self, *a, **k):
-		for function in self.functions:
-			try:
-				return function(*a, **k)
-			except:
-				pass
-		raise RuntimeError("All attempts failed!")
+    def __init__(self, *functions):
+        self.functions = functions
+    def __call__(self, *a, **k):
+        for function in self.functions:
+            try:
+                return function(*a, **k)
+            except:
+                pass
+        raise RuntimeError("All attempts failed!")
 
 # Unused characters for functions / operators
 
 #  ☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼ !"#$%&'()*+,-./0123456789:;<=>?
 # @ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂
 # ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐
-# └┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ 
+# └┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■
 
 functions = {
-	' '  : None,
-	'☺'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'☻'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♦'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♣'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'•'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'◘'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'○'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'◙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♂'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♀'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'♪'  : None,
-	'♫'  : None,
-	'☼'  : None,
-	'►'  : None,
-	'◄'  : None,
-	'↕'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'‼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'¶'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'§'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'↨'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'↑'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'↓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'→'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'←'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'∟'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'↔'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▲'  : Function(arity = 1, function = NamedFunction(name = "<Increment>", function = Attempts(lambda x: x + 1, lambda x: chr(ord(x) + 1))), vectorize = 1),
-	'▼'  : Function(arity = 1, function = NamedFunction(name = "<Decrement>", function = Attempts(lambda x: x - 1, lambda x: chr(ord(x) - 1))), vectorize = 1),
-	' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'!'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'"'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'#'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'$'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'%'  : Function(arity = 2, function = NamedFunction(name = "<Remainder>", function = operator.mod), vectorize = 3),
-	'&'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	"'"  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'('  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	')'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'*'  : Function(arity = 2, function = NamedFunction(name = "<Multiplication>", function = operator.mul), vectorize = 3),
-	'+'  : Function(arity = 2, function = NamedFunction(name = "<Addition>", function = operator.add), vectorize = 3),
-	','  : Function(arity = 2, function = NamedFunction(name = "<Pair>", function = lambda x, y: (x, y))),
-	'-'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'.'  : None,
-	'/'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'0'  : None,
-	'1'  : None,
-	'2'  : None,
-	'3'  : None,
-	'4'  : None,
-	'5'  : None,
-	'6'  : None,
-	'7'  : None,
-	'8'  : None,
-	'9'  : None,
-	':'  : Function(arity = 2, function = NamedFunction(name = "<Floor Division>", function = operator.floordiv), vectorize = 3),
-	';'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'<'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'='  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'>'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'?'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'@'  : Operator(function = lambda s: (lambda f: Function(arity = 2, function = NamedFunction(name = "<Swap Arguments %s>" % f, function = lambda x, y: f(y, x))))(s.pop())),
-	'A'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'B'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'C'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'D'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'E'  : Function(arity = 1, function = NamedFunction(name = "<All Equal>", function = lambda a: len(set(a)) == 1)),
-	'F'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'G'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'H'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'I'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'J'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'K'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'L'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'M'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'N'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'O'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'P'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Q'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'R'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'S'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'T'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'U'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'V'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'W'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'X'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Y'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Z'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'['  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'\\' : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	']'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'^'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'_'  : Function(arity = 2, function = NamedFunction(name = "<Subtraction>", function = operator.sub), vectorize = 3),
-	'`'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'a'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'b'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'c'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'd'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'e'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'f'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'g'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'h'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'i'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'j'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'k'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'l'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'm'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'n'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'o'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'p'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'q'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'r'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	's'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	't'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'u'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'v'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'w'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'x'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'y'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'z'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'{'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'|'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'}'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'~'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'⌂'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Ç'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ü'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'é'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'â'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ä'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'à'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'å'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ç'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ê'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ë'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'è'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ï'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'î'  : None,
-	'ì'  : None,
-	'Ä'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Å'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'É'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'æ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Æ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ô'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ö'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ò'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'û'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ù'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ÿ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Ö'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Ü'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'¢'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'£'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'¥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'₧'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ƒ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'á'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'í'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ó'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ú'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ñ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Ñ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ª'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'º'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'¿'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'⌐'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'¬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'½'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'¼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'¡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'«'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'»'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'░'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▒'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'│'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'┤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╢'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╖'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╕'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╣'  : Function(arity = 2, function = NamedFunction(name = "<Left Argument>", function = lambda x, y: x)),
-	'║'  : Function(arity = 1, function = NamedFunction(name = "<Magnitude>", function = lambda x: sqrt(sum(e * e for e in x)) if hasattr(x, "__iter__") else x), vectorizer = Vectorizer(min_depth = 1)),
-	'╗'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╝'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╜'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╛'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'┐'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'└'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'┴'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'┬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'├'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'─'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'┼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╞'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╟'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╚'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╔'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╩'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╦'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╠'  : Function(arity = 2, function = NamedFunction(name = "<Get Right Argument>", function = lambda x, y: y)),
-	'═'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╧'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╨'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╘'  : Function(arity = 2, function = NamedFunction(name = "<Logarithm>", function = sympy.log), vectorize = 3),
-	'╒'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╫'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'╪'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'┘'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'┌'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'█'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▄'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▌'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▐'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'▀'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'α'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ß'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Γ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'π'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Σ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'σ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'µ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'τ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Φ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Θ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'Ω'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'δ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'∞'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'φ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ε'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'∩'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'≡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'±'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'≥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'≤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'⌠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'⌡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'÷'  : Function(arity = 2, function = NamedFunction(name = "<Division>", function = operator.truediv), vectorize = 3),
-	'≈'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'°'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'∙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'·'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'√'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	'ⁿ'  : Function(arity = 2, function = NamedFunction(name = "<Exponentiation>", function = operator.pow), vectorize = 3),
-	'²'  : Function(arity = 1, function = NamedFunction(name = "<Square>", function = lambda x: x * x), vectorize = 1),
-	'■'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-	' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    ' '  : None,
+    '☺'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '☻'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '♥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '♦'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '♣'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '♠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '•'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '◘'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '○'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '◙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '♂'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '♀'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '♪'  : None,
+    '♫'  : None,
+    '☼'  : None,
+    '►'  : None,
+    '◄'  : None,
+    '↕'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '‼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¶'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '§'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '↨'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '↑'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '↓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '→'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '←'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '∟'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '↔'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▲'  : Function(arity = 1, function = NamedFunction(name = "<Increment>", function = Attempts(lambda x: x + 1, lambda x: chr(ord(x) + 1))), vectorize = 1),
+    '▼'  : Function(arity = 1, function = NamedFunction(name = "<Decrement>", function = Attempts(lambda x: x - 1, lambda x: chr(ord(x) - 1))), vectorize = 1),
+    ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '!'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '"'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '#'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '$'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '%'  : Function(arity = 2, function = NamedFunction(name = "<Remainder>", function = operator.mod), vectorize = 3),
+    '&'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    "'"  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '('  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    ')'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '*'  : Function(arity = 2, function = NamedFunction(name = "<Multiplication>", function = operator.mul), vectorize = 3),
+    '+'  : Function(arity = 2, function = NamedFunction(name = "<Addition>", function = operator.add), vectorize = 3),
+    ','  : Function(arity = 2, function = NamedFunction(name = "<Pair>", function = lambda x, y: (x, y))),
+    '-'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '.'  : None,
+    '/'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '0'  : None,
+    '1'  : None,
+    '2'  : None,
+    '3'  : None,
+    '4'  : None,
+    '5'  : None,
+    '6'  : None,
+    '7'  : None,
+    '8'  : None,
+    '9'  : None,
+    ':'  : Function(arity = 2, function = NamedFunction(name = "<Floor Division>", function = operator.floordiv), vectorize = 3),
+    ';'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '<'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '='  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '>'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '?'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '@'  : Operator(function = lambda s: (lambda f: Function(arity = 2, function = NamedFunction(name = "<Swap Arguments %s>" % f, function = lambda x, y: f(y, x))))(s.pop())),
+    'A'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'B'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'C'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'D'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'E'  : Function(arity = 1, function = NamedFunction(name = "<All Equal>", function = lambda a: len(set(a)) == 1)),
+    'F'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'G'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'H'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'I'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'J'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'K'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'L'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'M'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'N'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'O'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'P'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Q'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'R'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'S'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'T'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'U'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'V'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'W'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'X'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Y'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Z'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '['  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '\\' : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    ']'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '^'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '_'  : Function(arity = 2, function = NamedFunction(name = "<Subtraction>", function = operator.sub), vectorize = 3),
+    '`'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'a'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'b'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'c'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'd'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'e'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'f'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'g'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'h'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'i'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'j'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'k'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'l'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'm'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'n'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'o'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'p'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'q'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'r'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    's'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    't'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'u'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'v'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'w'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'x'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'y'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'z'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '{'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '|'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '}'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '~'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '⌂'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Ç'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ü'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'é'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'â'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ä'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'à'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'å'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ç'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ê'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ë'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'è'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ï'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'î'  : None,
+    'ì'  : None,
+    'Ä'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Å'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'É'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'æ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Æ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ô'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ö'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ò'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'û'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ù'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ÿ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Ö'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Ü'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¢'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '£'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '₧'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ƒ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'á'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'í'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ó'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ú'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ñ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Ñ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ª'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'º'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¿'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '⌐'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '½'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '«'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '»'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '░'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▒'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '│'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╢'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╖'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╕'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╣'  : Function(arity = 2, function = NamedFunction(name = "<Left Argument>", function = lambda x, y: x)),
+    '║'  : Function(arity = 1, function = NamedFunction(name = "<Magnitude>", function = lambda x: sqrt(sum(e * e for e in x)) if hasattr(x, "__iter__") else x), vectorizer = Vectorizer(min_depth = 1)),
+    '╗'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╝'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╜'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╛'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┐'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '└'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┴'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '├'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '─'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╞'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╟'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╚'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╔'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╩'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╦'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╠'  : Function(arity = 2, function = NamedFunction(name = "<Get Right Argument>", function = lambda x, y: y)),
+    '═'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╧'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╨'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╘'  : Function(arity = 2, function = NamedFunction(name = "<Logarithm>", function = sympy.log if SYMPY else math.log), vectorize = 3),
+    '╒'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╫'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╪'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┘'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┌'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '█'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▄'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▌'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▐'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '▀'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'α'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ß'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Γ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'π'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Σ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'σ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'µ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'τ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Φ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Θ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'Ω'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'δ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '∞'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'φ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ε'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '∩'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '≡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '±'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '≥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '≤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '⌠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '⌡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '÷'  : Function(arity = 2, function = NamedFunction(name = "<Division>", function = operator.truediv), vectorize = 3),
+    '≈'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '°'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '∙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '·'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '√'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'ⁿ'  : Function(arity = 2, function = NamedFunction(name = "<Exponentiation>", function = operator.pow), vectorize = 3),
+    '²'  : Function(arity = 1, function = NamedFunction(name = "<Square>", function = lambda x: x * x), vectorize = 1),
+    '■'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 }
 
 overloads = "⌠⌡♪♫☼§"
 
 def to_i(text):
-	if text.startswith("-"):
-		return "-" + to_i(text[1:])
-	elif text == "":
-		return "sympy.Integer(1)"
-	else:
-		return "sympy.Integer(" + repr(text) + ")"
+    if text.startswith("-"):
+        return "-" + to_i(text[1:])
+    elif text == "":
+        return "sympy.Integer(1)" if SYMPY else "1"
+    else:
+        return "sympy.Integer(" * SYMPY + repr(text) + ")" * SYMPY
 
 def to_r(text):
-	if text.startswith("-"):
-		return "-" + to_r(text[1:])
-	else:
-		left, right = text.split(".")
-		return "sympy.Rational(" + repr((left or "0") + "." + (right or "5")) + ")"
+    if text.startswith("-"):
+        return "-" + to_r(text[1:])
+    else:
+        left, right = text.split(".")
+        return "sympy.Rational(" * SYMPY + repr((left or "0") + "." + (right or "5")) + ")" * SYMPY
 
 def to_n(text):
-	if "ì" in text:
-		left, right = text.split("ì", 1)
-		return to_n(left or "0") + "+sympy.I*" + to_n(right or "1")
-	elif "î" in text:
-		left, right = text.split("î", 1)
-		return to_n(left or "1") + "*10**" + to_n(right or "3")
-	elif "." in text:
-		return to_r(text)
-	else:
-		return to_i(text)
+    if "ì" in text:
+        left, right = text.split("ì", 1)
+        return to_n(left or "0") + "+sympy.I*" + to_n(right or "1") if SYMPY else to_n(left or "0") + "+" + to_n(right or "1") + "j"
+    elif "î" in text:
+        left, right = text.split("î", 1)
+        return to_n(left or "1") + "*10**" + to_n(right or "3")
+    elif "." in text:
+        return to_r(text)
+    else:
+        return to_i(text)
 
 #  ☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼ !"#$%&'()*+,-./0123456789:;<=>?
 # @ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂
 # ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐
-# └┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ 
+# └┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■
 
 dgts = r"(?:[1-9][0-9]*)"
 intg = r"(0|-?{d}|-)".format(d = dgts)
@@ -459,254 +469,254 @@ spec = "(" + "|".join(map(re.escape, overloads)) + ")"
 pyfn = "⌠.+?[☼♪♫]"
 
 def str_eval(type):
-	type = "◄«»⌐".index(type)
-	if type == 0:
-		return lambda code: repr(list(eval('"""%s"""' % code.replace('"', '\\"'))))
-	if type == 1:
-		return lambda code: repr(list(map(codepage.index, eval('"""%s"""' % code.replace('"', '\\"')))))
-	if type == 2:
-		return lambda code: (lambda str: "("+"+".join("sympy.Integer(250)**"+str(len(str)-index-1)+"*sympy.Integer("+repr(codepage.index(char)+1)+")"for index, char in enumerate(str))+")")(eval('"""%s"""' % code.replace('"', '\\"')))
+    type = "◄«»⌐".index(type)
+    if type == 0:
+        return lambda code: repr(list(eval('"""%s"""' % code.replace('"', '\\"'))))
+    if type == 1:
+        return lambda code: repr(list(map(codepage.index, eval('"""%s"""' % code.replace('"', '\\"')))))
+    if type == 2:
+        return lambda code: (lambda str: "("+"+".join("sympy.Integer("*SYMPY+"250"+")"*SYMPY+"**"+str(len(str)-index-1)+"*"+"sympy.Integer("*SYMPY+repr(codepage.index(char)+1)+")"*SYMPY for index, char in enumerate(str))+")")(eval('"""%s"""' % code.replace('"', '\\"')))
 
 def evalyank(code):
-	match = re.match(char, code)
-	if match:
-		return (match.group(), "[" + repr(match.group()[1]) + "]")
-	match = re.match(strn, code)
-	if match:
-		return (match.group(), str_eval(match.group()[-1])(match.group()[1:-1]))
-	match = re.match(slst, code)
-	if match:
-		return (match.group(), list(map(str_eval(match.group()[-1]), re.split(r"(?<!\\)“", match.group()[1:-1]))))
-	match = re.match(numr, code)
-	if match:
-		return (match.group(), to_n(match.group()))
+    match = re.match(char, code)
+    if match:
+        return (match.group(), "[" + repr(match.group()[1]) + "]")
+    match = re.match(strn, code)
+    if match:
+        return (match.group(), str_eval(match.group()[-1])(match.group()[1:-1]))
+    match = re.match(slst, code)
+    if match:
+        return (match.group(), list(map(str_eval(match.group()[-1]), re.split(r"(?<!\\)“", match.group()[1:-1]))))
+    match = re.match(numr, code)
+    if match:
+        return (match.group(), to_n(match.group()))
 
 def make_list(obj):
-	if hasattr(obj, "__iter__"):
-		return list(obj)
-	else:
-		return obj
+    if hasattr(obj, "__iter__"):
+        return list(obj)
+    else:
+        return obj
 
 def ntrneval(code):
-	raw = ""
-	while code:
-		yanked = evalyank(code)
-		if yanked:
-			raw += yanked[1] + " "
-			code = code[len(yanked[0]):]
-		else:
-			raw += code[0]
-			code = code[1:]
-	return make_list(eval(raw))
+    raw = ""
+    while code:
+        yanked = evalyank(code)
+        if yanked:
+            raw += yanked[1] + " "
+            code = code[len(yanked[0]):]
+        else:
+            raw += code[0]
+            code = code[1:]
+    return make_list(eval(raw))
 
 
 def ntrnevalmatcher(match):
-	value = ntrneval(match.group())
-	return Function(arity = 0, function = NamedFunction(name = "<Literal Value>", function = (lambda v: lambda: v)(value)))
+    value = ntrneval(match.group())
+    return Function(arity = 0, function = NamedFunction(name = "<Literal Value>", function = (lambda v: lambda: v)(value)))
 
 matchers = [(m[0], re.compile(m[1]), m[2]) for m in [
-	("ntrn", ntrn, ntrnevalmatcher),
-	("func", func, lambda m: functions[m.group()]),
-	("spec", spec, lambda m: (-2, m.group())),
-	("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = eval(m.group()[1:-1])))
+    ("ntrn", ntrn, ntrnevalmatcher),
+    ("func", func, lambda m: functions[m.group()]),
+    ("spec", spec, lambda m: (-2, m.group())),
+    ("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = eval(m.group()[1:-1])))
 ]]
 
 def tokenize(code):
-	code = "".join(char for char in code.replace("\n", "¶") if char in codepage)
-	tokens = []
-	while code:
-		tokens = tokens or [[]]
-		if code[0] == "¶": tokens.append([]); code = code[1:]; continue
-		for matcher in matchers:
-			token = matcher[1].match(code)
-			if token:
-				try:
-					tokens[-1].append(matcher[2](token))
-					code = code[len(token.group()):]
-					break
-				except:
-					pass
-		else:
-			code = code[1:]
-	return tokens
+    code = "".join(char for char in code.replace("\n", "¶") if char in codepage)
+    tokens = []
+    while code:
+        tokens = tokens or [[]]
+        if code[0] == "¶": tokens.append([]); code = code[1:]; continue
+        for matcher in matchers:
+            token = matcher[1].match(code)
+            if token:
+                try:
+                    tokens[-1].append(matcher[2](token))
+                    code = code[len(token.group()):]
+                    break
+                except:
+                    pass
+        else:
+            code = code[1:]
+    return tokens
 
 brackets = "☼§♪§♫§"
 
 def parse(tokens):
-	result = []
-	index = 0
-	while index < len(tokens):
-		if type(tokens[index]) == tuple and tokens[index][0] == -2 and brackets.find(tokens[index][1]) & 1 == 0:
-			start = tokens[index][1]
-			inner = []
-			bcount = 1
-			index += 1
-			while bcount:
-				if type(tokens[index]) == tuple and tokens[index][0] == -2 and tokens[index][1] in brackets:
-					if brackets.find(tokens[index][1]) & 1 == 1:
-						bcount -= 1
-						if not bcount: index += 1; break
-					else:
-						bcount += 1
-				inner.append(tokens[index])
-				index += 1
-			result.append((brackets.find(start) >> 1, parse(inner)))
-		else:
-			result.append(tokens[index])
-			index += 1
-	return result
+    result = []
+    index = 0
+    while index < len(tokens):
+        if type(tokens[index]) == tuple and tokens[index][0] == -2 and brackets.find(tokens[index][1]) & 1 == 0:
+            start = tokens[index][1]
+            inner = []
+            bcount = 1
+            index += 1
+            while bcount:
+                if type(tokens[index]) == tuple and tokens[index][0] == -2 and tokens[index][1] in brackets:
+                    if brackets.find(tokens[index][1]) & 1 == 1:
+                        bcount -= 1
+                        if not bcount: index += 1; break
+                    else:
+                        bcount += 1
+                inner.append(tokens[index])
+                index += 1
+            result.append((brackets.find(start) >> 1, parse(inner)))
+        else:
+            result.append(tokens[index])
+            index += 1
+    return result
 
 def preexecute(tokens):
-	func_stack = []
-	for token in tokens:
-		if isinstance(token, Function):
-			if isinstance(token.function, list):
-				func_stack.append(Function(arity = token.arity, function = preexecute(token.function)))
-			else:
-				func_stack.append(token)
-		elif isinstance(token, Operator):
-			func_stack.append(token(func_stack))
-		else:
-			raise RuntimeError("huh?")
-	return func_stack
+    func_stack = []
+    for token in tokens:
+        if isinstance(token, Function):
+            if isinstance(token.function, list):
+                func_stack.append(Function(arity = token.arity, function = preexecute(token.function)))
+            else:
+                func_stack.append(token)
+        elif isinstance(token, Operator):
+            func_stack.append(token(func_stack))
+        else:
+            raise RuntimeError("huh?")
+    return func_stack
 
 class Evaluator:
-	def __init__(self, function):
-		self.function = function
-	def __call__(self, tokens, *args, **kwargs):
-		if isinstance(tokens, list): return self.function(tokens[:], *args, **kwargs)
-		else: return self.function([tokens], *args, **kwargs)
+    def __init__(self, function):
+        self.function = function
+    def __call__(self, tokens, *args, **kwargs):
+        if isinstance(tokens, list): return self.function(tokens[:], *args, **kwargs)
+        else: return self.function([tokens], *args, **kwargs)
 
 @Evaluator
 def nileval(tokens, layer = 0, nest = False, links = [], index = -1):
-	if tokens:
-		if tokens[0].arity == 0:
-			if isinstance(tokens[0].function, list):
-				value = nileval(tokens.pop(0).function, layer = layer + 1, nest = True)
-			else:
-				value = tokens.pop(0)()
-		elif tokens[0].arity == -2:
-			value = 0
-		else:
-			value = 0
-	else:
-		value = 0
-	return moneval(tokens, value, layer = layer)
+    if tokens:
+        if tokens[0].arity == 0:
+            if isinstance(tokens[0].function, list):
+                value = nileval(tokens.pop(0).function, layer = layer + 1, nest = True)
+            else:
+                value = tokens.pop(0)()
+        elif tokens[0].arity == -2:
+            value = 0
+        else:
+            value = 0
+    else:
+        value = 0
+    return moneval(tokens, value, layer = layer)
 
 @Evaluator
 def moneval(tokens, argument, layer = 0, nest = False, links = [], index = -1):
-	if nest and tokens and not any(map(operator.itemgetter(0), tokens)):
-		values = [nileval([token], layer = layer + 1, nest = False) for token in tokens]
-		if argument in values: return values[(values.index(argument) + 1) % len(values)]
-		return argument
-	if tokens and tokens[0].arity == 0:
-		value = nileval(tokens.pop(0), layer = layer)
-	else:
-		value = None
-	while tokens:
-		v = argument if value is None else value
-		if len(tokens) >= 3 and tokens[0].arity == tokens[1].arity == 2 and tokens[2].arity == 0:
-			value = dydeval(tokens.pop(1), dydeval(tokens.pop(0), v, argument, layer), nileval(tokens.pop(0), layer), layer = layer)
-		elif len(tokens) >= 2 and tokens[0].arity == 2 and tokens[1].arity == 1:
-			value = dydeval(tokens.pop(0), v, tokens.pop(0)(argument), layer = layer)
-		elif len(tokens) >= 2 and tokens[0].arity == 2 and tokens[1].arity == 0:
-			value = dydeval(tokens.pop(0), v, nileval(tokens.pop(0), layer = layer), layer = layer)
-		elif len(tokens) >= 2 and tokens[0].arity == 0 and tokens[1].arity == 2:
-			value = dydeval(tokens.pop(1), nileval(tokens.pop(0), layer = layer), v, layer = layer)
-		elif tokens[0].arity == 2:
-			if isinstance(tokens[0].function, list):
-				value = dydeval(tokens.pop(0), v, argument, layer = layer + 1, nest = True)
-			else:
-				value = tokens.pop(0)(v, argument)
-		elif tokens[0].arity == 1:
-			if isinstance(tokens[0].function, list):
-				value = moneval(tokens.pop(0).function, v, layer = layer + 1, nest = True)
-			else:
-				value = tokens.pop(0)(v)
-		else:
-			if value is not None:
-				print(value, end = "")
-			value = nileval(tokens.pop(0), layer = layer)
-	return argument if value is None else value
+    if nest and tokens and not any(map(operator.itemgetter(0), tokens)):
+        values = [nileval([token], layer = layer + 1, nest = False) for token in tokens]
+        if argument in values: return values[(values.index(argument) + 1) % len(values)]
+        return argument
+    if tokens and tokens[0].arity == 0:
+        value = nileval(tokens.pop(0), layer = layer)
+    else:
+        value = None
+    while tokens:
+        v = argument if value is None else value
+        if len(tokens) >= 3 and tokens[0].arity == tokens[1].arity == 2 and tokens[2].arity == 0:
+            value = dydeval(tokens.pop(1), dydeval(tokens.pop(0), v, argument, layer), nileval(tokens.pop(0), layer), layer = layer)
+        elif len(tokens) >= 2 and tokens[0].arity == 2 and tokens[1].arity == 1:
+            value = dydeval(tokens.pop(0), v, tokens.pop(0)(argument), layer = layer)
+        elif len(tokens) >= 2 and tokens[0].arity == 2 and tokens[1].arity == 0:
+            value = dydeval(tokens.pop(0), v, nileval(tokens.pop(0), layer = layer), layer = layer)
+        elif len(tokens) >= 2 and tokens[0].arity == 0 and tokens[1].arity == 2:
+            value = dydeval(tokens.pop(1), nileval(tokens.pop(0), layer = layer), v, layer = layer)
+        elif tokens[0].arity == 2:
+            if isinstance(tokens[0].function, list):
+                value = dydeval(tokens.pop(0), v, argument, layer = layer + 1, nest = True)
+            else:
+                value = tokens.pop(0)(v, argument)
+        elif tokens[0].arity == 1:
+            if isinstance(tokens[0].function, list):
+                value = moneval(tokens.pop(0).function, v, layer = layer + 1, nest = True)
+            else:
+                value = tokens.pop(0)(v)
+        else:
+            if value is not None:
+                print(value, end = "")
+            value = nileval(tokens.pop(0), layer = layer)
+    return argument if value is None else value
 
 @Evaluator
 def dydeval(tokens, left, right, layer = 0, nest = False, links = [], index = -1):
-	if len(tokens) >= 3 and tokens[0].arity == tokens[1].arity == tokens[2].arity == 2:
-		if isinstance(tokens[0].function, list):
-			value = dydeval(tokens.pop(0).function, left, right, layer = layer + 1, nest = True)
-		else:
-			value = tokens.pop(0)(left, right)
-	elif tokens and tokens[0] == 0:
-		value = nileval(tokens.pop(0), layer = layer)
-	else:
-		value = None
-	while tokens:
-		v = left if value is None else value
-		if len(tokens) >= 3 and tokens[0].arity == tokens[1].arity == 2 and tokens[2].arity == 0:
-			value = dydeval(tokens.pop(1), dydeval(tokens.pop(0), v, right, layer = layer), nileval(tokens.pop(0), layer = layer), layer = layer)
-		elif len(tokens) >= 2 and tokens[0].arity == tokens[1].arity == 2:
-			value = dydeval(tokens.pop(0), v, dydeval(tokens.pop(0), left, right, layer = layer), layer = layer)
-		elif len(tokens) >= 2 and tokens[0].arity == 2 and tokens[1].arity == 0:
-			value = dydeval(tokens.pop(0), v, nileval(tokens.pop(0), layer = layer), layer = layer)
-		elif len(tokens) >= 2 and tokens[0].arity == 0 and tokens[1].arity == 2:
-			value = dydeval(tokens.pop(1), nileval(tokens.pop(0), layer = layer), v, layer = layer)
-		elif tokens[0].arity == 2:
-			if isinstance(tokens[0].function, list):
-				value = dydeval(tokens.pop(0).function, v, right, layer = layer + 1, nest = True)
-			else:
-				value = tokens.pop(0)(v, right)
-		elif tokens[0].arity == 1:
-			if isinstance(tokens[0].function, list):
-				value = moneval(tokens.pop(0).function, v, layer = layer + 1, nest = True)
-			else:
-				value = tokens.pop(0)(v)
-		else:
-			if value is not None:
-				neutrino_output(value, "")
-			value = nileval(tokens.pop(0), layer = layer)
-	return left if value is None else value
+    if len(tokens) >= 3 and tokens[0].arity == tokens[1].arity == tokens[2].arity == 2:
+        if isinstance(tokens[0].function, list):
+            value = dydeval(tokens.pop(0).function, left, right, layer = layer + 1, nest = True)
+        else:
+            value = tokens.pop(0)(left, right)
+    elif tokens and tokens[0] == 0:
+        value = nileval(tokens.pop(0), layer = layer)
+    else:
+        value = None
+    while tokens:
+        v = left if value is None else value
+        if len(tokens) >= 3 and tokens[0].arity == tokens[1].arity == 2 and tokens[2].arity == 0:
+            value = dydeval(tokens.pop(1), dydeval(tokens.pop(0), v, right, layer = layer), nileval(tokens.pop(0), layer = layer), layer = layer)
+        elif len(tokens) >= 2 and tokens[0].arity == tokens[1].arity == 2:
+            value = dydeval(tokens.pop(0), v, dydeval(tokens.pop(0), left, right, layer = layer), layer = layer)
+        elif len(tokens) >= 2 and tokens[0].arity == 2 and tokens[1].arity == 0:
+            value = dydeval(tokens.pop(0), v, nileval(tokens.pop(0), layer = layer), layer = layer)
+        elif len(tokens) >= 2 and tokens[0].arity == 0 and tokens[1].arity == 2:
+            value = dydeval(tokens.pop(1), nileval(tokens.pop(0), layer = layer), v, layer = layer)
+        elif tokens[0].arity == 2:
+            if isinstance(tokens[0].function, list):
+                value = dydeval(tokens.pop(0).function, v, right, layer = layer + 1, nest = True)
+            else:
+                value = tokens.pop(0)(v, right)
+        elif tokens[0].arity == 1:
+            if isinstance(tokens[0].function, list):
+                value = moneval(tokens.pop(0).function, v, layer = layer + 1, nest = True)
+            else:
+                value = tokens.pop(0)(v)
+        else:
+            if value is not None:
+                neutrino_output(value, "")
+            value = nileval(tokens.pop(0), layer = layer)
+    return left if value is None else value
 
 def evaluate(links, arguments):
-	links = links or [[]]
-	link = links[-1]
-	if len(arguments) >= 1:
-		functions["┤"] = Function(arity = 0, function = NamedFunction(name = "<Left Argument Nilad>", function = (lambda v: lambda: v)(arguments[0])))
-	if len(arguments) >= 2:
-		functions["├"] = Function(arity = 0, function = NamedFunction(name = "<Right Argument Nilad>", function = (lambda v: lambda: v)(arguments[1])))
-	# TODO other argument getters
-	if len(arguments) >= 2:
-		return dydeval(link, arguments[0], arguments[1], links = links, index = len(links) - 1)
-	elif len(arguments) == 1:
-		return moneval(link, arguments[0], links = links, index = len(links) - 1)
-	else:
-		return nileval(link, links = links, index = len(links) - 1)
+    links = links or [[]]
+    link = links[-1]
+    if len(arguments) >= 1:
+        functions["┤"] = Function(arity = 0, function = NamedFunction(name = "<Left Argument Nilad>", function = (lambda v: lambda: v)(arguments[0])))
+    if len(arguments) >= 2:
+        functions["├"] = Function(arity = 0, function = NamedFunction(name = "<Right Argument Nilad>", function = (lambda v: lambda: v)(arguments[1])))
+    # TODO other argument getters
+    if len(arguments) >= 2:
+        return dydeval(link, arguments[0], arguments[1], links = links, index = len(links) - 1)
+    elif len(arguments) == 1:
+        return moneval(link, arguments[0], links = links, index = len(links) - 1)
+    else:
+        return nileval(link, links = links, index = len(links) - 1)
 
 def neutrino_eval(code, arguments):
-	return evaluate(list(map(preexecute, map(parse, tokenize(code)))), arguments)
+    return evaluate(list(map(preexecute, map(parse, tokenize(code)))), arguments)
 
 def stringify(iterable, recurse = True):
-	if type(iterable) != list:
-		 return 1 if iterable is True else 0 if iterable is False else iterable
-	if len(iterable) == 1:
-		 return stringify(iterable[0])
-	if str in map(type, iterable) and not list in map(type, iterable) or not iterable:
-		return "".join(map(str, iterable))
-	iterable = [stringify(item) for item in iterable]
-	return stringify(iterable, False) if recurse else iterable
+    if type(iterable) != list:
+         return 1 if iterable is True else 0 if iterable is False else iterable
+    if len(iterable) == 1:
+         return stringify(iterable[0])
+    if str in map(type, iterable) and not list in map(type, iterable) or not iterable:
+        return "".join(map(str, iterable))
+    iterable = [stringify(item) for item in iterable]
+    return stringify(iterable, False) if recurse else iterable
 
 def unicode_to_neutrino(string):
-	return "".join(chr(codepage.find(char)) for char in str(string).replace("\n", "¶") if char in codepage)
+    return "".join(chr(codepage.find(char)) for char in str(string).replace("\n", "¶") if char in codepage)
 
 def neutrino_output(argument, end = "\n", transform = stringify):
-	if locale.getdefaultlocale()[1][:3] == "UTF":
-		print(transform(argument), end = end)
-	else:
-		print(unicode_to_neutrino(transform(argument)), end = unicode_to_neutrino(end))
-	sys.stdout.flush()
-	return argument
+    if locale.getdefaultlocale()[1][:3] == "UTF":
+        print(transform(argument), end = end)
+    else:
+        print(unicode_to_neutrino(transform(argument)), end = unicode_to_neutrino(end))
+    sys.stdout.flush()
+    return argument
 
 if __name__ == "__main__":
-	args = list(map(try_eval, pr_args[:6]))
-	for i, e in enumerate(args):
-		functions["☺☻♥♦♣♠"[i]] = Function(arity = 0, function = NamedFunction(name = "<Argument %d Nilad>" % i, function = (lambda v: lambda: v)(e)))
-	neutrino_output(neutrino_eval(input(), args))
+    args = list(map(try_eval, pr_args[:6]))
+    for i, e in enumerate(args):
+        functions["☺☻♥♦♣♠"[i]] = Function(arity = 0, function = NamedFunction(name = "<Argument %d Nilad>" % i, function = (lambda v: lambda: v)(e)))
+    neutrino_output(neutrino_eval(input(), args))
