@@ -3,6 +3,7 @@
 # Neutrino Programming Language by HyperNeutrino
 # Parts of this program are taken from Dennis's code for the Jelly programming language,
 # in compliance to the MIT license and with his additionally expressed permission
+# Parts of this program are taken from the Enlist programming language which is original work of HyperNeutrino
 
 codepage  = """ ☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼ !"#$%&'()*+,-./0123456789:;<=>?"""
 codepage += """@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂"""
@@ -46,7 +47,7 @@ def range(*a):
     if SYMPY:
         return list(map(sympy.Integer, pyrange(*a)))
     else:
-        return pyrange(*a)
+        return list(pyrange(*a))
 
 def try_eval(string):
     try:
@@ -60,8 +61,17 @@ def force_list(obj):
     except:
         return [obj]
 
+def range_list(obj):
+    try:
+        return list(obj)
+    except:
+        try:
+            return range(1, 1 + int(obj))
+        except:
+            return [obj]
+
 def ntype(var):
-    if hasattr(var, "__iter__"):
+    if hasattr(var, "__iter__") and type(var) != str:
         return list(map(ntype, var))
     if not SYMPY:
         return var
@@ -78,9 +88,10 @@ def depth(nobj):
         return 0
 
 class Vectorizer:
-    def __init__(self, max_level = -1, min_depth = 0, left = True, right = True):
+    def __init__(self, max_level = -1, min_depth_left = 0, min_depth_right = 0, left = True, right = True):
         self.ml = max_level
-        self.md = min_depth
+        self.mdl = min_depth_left
+        self.mdr = min_depth_right
         self.vl = left
         self.vr = right
     def __call__(self, arity):
@@ -89,7 +100,7 @@ class Vectorizer:
         if arity == 1:
             def provider(f):
                 def inner(a, t = 0):
-                    if t < self.ml and depth(a) > self.md and self.vl:
+                    if (t < self.ml or self.ml == -1) and depth(a) > self.mdl and self.vl:
                         return [inner(e, t + 1) for e in a]
                     else:
                         return f(a)
@@ -98,12 +109,12 @@ class Vectorizer:
         if arity == 2:
             def provider(f):
                 def inner(x, y, t = 0):
-                    if t < self.ml:
-                        if depth(a) > self.md < depth(b) and self.vl and self.vr:
+                    if (t < self.ml or self.ml == -1):
+                        if depth(x) > self.mdl and self.mdr < depth(y) and self.vl and self.vr:
                             return [inner(i, j, t + 1) for i, j in zip(x, y)] + x[len(y):] + y[len(x):]
-                        elif depth(a) > self.md and self.vl:
+                        elif depth(x) > self.mdl and self.vl:
                             return [inner(e, y, t + 1) for e in x]
-                        elif depth(b) > self.md and self.vr:
+                        elif depth(y) > self.mdr and self.vr:
                             return [inner(x, e, t + 1) for e in y]
                     return f(x, y)
                 return inner
@@ -113,7 +124,7 @@ class Function:
     def __init__(self, arity, function, vectorizer = None, vectorize = 0):
         self.arity = arity
         self.function = vectorizer(self.arity)(function) if vectorizer else function
-        self.vectorize = (vectorizer is None) * vectorize
+        self.vectorize = vectorize
     def __repr__(self):
         return "[Function(%s) %s]" % (["Nilad", "Monad", "Dyad"][self.arity], self.function)
     def __call__(self, larg = 0, rarg = 0):
@@ -127,9 +138,9 @@ class Function:
         if self.arity == 2:
             if self.vectorize == 3 and isinstance(larg, list) and isinstance(rarg, list):
                 return [self(l, r) for l, r in zip(larg, rarg)] + larg[len(rarg):] + rarg[len(larg):]
-            elif self.vectorize == 1 and isinstance(larg, list):
+            elif self.vectorize & 1 and isinstance(larg, list):
                 return [self(l, rarg) for l in larg]
-            elif self.vectorize == 2 and isinstance(rarg, list):
+            elif self.vectorize & 2 and isinstance(rarg, list):
                 return [self(larg, r) for r in rarg]
             else:
                 return self.function(larg, rarg)
@@ -196,6 +207,47 @@ def flatten(array):
     else:
         return [array]
 
+def from_base(digits, base):
+    integer = 0
+    for digit in digits:
+        integer = base * integer + digit
+    return integer
+
+def to_base(integer, base, bijective = False):
+    if integer == 0:
+        return [0] * (not bijective)
+    if bijective:
+        base = abs(base)
+    if base == 0:
+        return [integer]
+    if base == -1:
+        digits = [1, 0] * abs(integer)
+        return digits[:-1] if integer > 0 else digits
+    sign = -1 if integer < 0 and base > 0 else 1
+    integer *= sign
+    if base == 1:
+        return [sign] * integer
+    digits = []
+    while integer:
+        integer -= bijective
+        integer, digit = divmod(integer, base)
+        digit += bijective
+        if digit < 0:
+            integer += 1
+            digit -= base
+        digits.append(sign * digit)
+    return digits[::-1]
+
+def shuffle(array):
+    array = force_list(array)
+    random.shuffle(array)
+    return array
+
+GCD = sympy.gcd if SYMPY else math.gcd
+
+def LCM(x, y):
+    return x * y / (GCD(x, y) or 1)
+
 #  ☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼ !"#$%&'()*+,-./0123456789:;<=>?
 # @ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~⌂
 # ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐
@@ -211,7 +263,7 @@ functions = {
     '♠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '•'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '◘'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '○'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '○'  : Operator(function = NamedFunction(name = "<Outer Product Table>", function = lambda s: (lambda f: Function(arity = 2, function = NamedFunction(name = "<Outer Product Table of %s>" % f, function = lambda x, y: [[f(i, j) for i in force_list(x)] for j in force_list(y)])))(s.pop()))),
     '◙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '♂'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '♀'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -226,12 +278,12 @@ functions = {
     '§'  : Function(arity = 1, function = NamedFunction(name = "<Reversed>", function = lambda x: list(reversed(force_list(x))))),
     '▬'  : Function(arity = 2, function = NamedFunction(name = "<Set Difference>", function = lambda x, y: [e for e in force_list(x) if e not in force_list(y)])),
     '↨'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '↑'  : Function(arity = 1, function = NamedFunction(name = "<Sort Ascending>", function = lambda x: sorted(force_list(x))), vectorizer = Vectorizer(min_depth = 1)),
-    '↓'  : Function(arity = 1, function = NamedFunction(name = "<Sort Descending>", function = lambda x: sorted(force_list(x), reverse = True)), vectorizer = Vectorizer(min_depth = 1)),
-    '→'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '←'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '↑'  : Function(arity = 1, function = NamedFunction(name = "<Sort Ascending>", function = lambda x: sorted(force_list(x))), vectorizer = Vectorizer(min_depth_left = 1)),
+    '↓'  : Function(arity = 1, function = NamedFunction(name = "<Sort Descending>", function = lambda x: sorted(force_list(x), reverse = True)), vectorizer = Vectorizer(min_depth_left = 1)),
+    '→'  : Operator(function = NamedFunction(name = "<Map Over Right>", function = lambda s: (lambda f: Function(arity = f.arity, function = NamedFunction(name = "<Map %s Over Right>" % f, function = lambda x, y: [f(x, e) for e in force_list(y)])))(s.pop()))),
+    '←'  : Operator(function = NamedFunction(name = "<Map Over Left>", function = lambda s: (lambda f: Function(arity = f.arity, function = NamedFunction(name = "<Map %s Over Left>" % f, function = lambda *a: [f(e, *(a[1:])) for e in force_list(a[0])])))(s.pop()))),
     '∟'  : Function(arity = 2, function = NamedFunction(name = "<Vectorizing Inequality>", function = operator.ne), vectorize = 3),
-    '↔'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '↔'  : Operator(function = NamedFunction(name = "<Map Over Pairs>", function = lambda s: (lambda f: Function(arity = 1, function = NamedFunction(name = "<Map %s Over Pairs>" % f, function = lambda x: (lambda a: [f(q, r) for q, r in zip(a, a[1:])])(force_list(x)))))(s.pop()))),
     '▲'  : Function(arity = 1, function = NamedFunction(name = "<Increment>", function = Attempts(lambda x: x + 1, lambda x: chr(ord(x) + 1))), vectorize = 1),
     '▼'  : Function(arity = 1, function = NamedFunction(name = "<Decrement>", function = Attempts(lambda x: x - 1, lambda x: chr(ord(x) - 1))), vectorize = 1),
     ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -265,7 +317,7 @@ functions = {
     '<'  : Function(arity = 2, function = NamedFunction(name = "<Less Than>", function = operator.lt), vectorize = 3),
     '='  : Function(arity = 2, function = NamedFunction(name = "<Non-vectorizing Equality>", function = operator.eq)),
     '>'  : Function(arity = 2, function = NamedFunction(name = "<Greater Than>", function = operator.gt)),
-    '?'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '?'  : Function(arity = 1, function = NamedFunction(name = "<Random>", function = lambda x: random.choice(range_list(x)))),
     '@'  : Operator(function = lambda s: (lambda f: Function(arity = 2, function = NamedFunction(name = "<Swap Arguments %s>" % f, function = lambda x, y: f(y, x))))(s.pop())),
     'A'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'B'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -360,7 +412,7 @@ functions = {
     '¢'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '£'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '¥'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '₧'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '₧'  : Function(arity = 1, function = NamedFunction(name = "<Python Evaluate>", function = lambda x: ntype(eval("".join(map(str, flatten(x))))))),
     'ƒ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'á'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'í'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -370,7 +422,7 @@ functions = {
     'Ñ'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'ª'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'º'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '¿'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '¿'  : Function(arity = 1, function = NamedFunction(name = "<Shuffle>", function = shuffle)),
     '⌐'  : Function(arity = 2, function = NamedFunction(name = "<Non-vectorizing Inequality>", function = operator.ne)),
     '¬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '½'  : Function(arity = 1, function = NamedFunction(name = "<Halve>", function = lambda x: x / 2), vectorize = 1),
@@ -385,27 +437,27 @@ functions = {
     '┤'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╡'  : Function(arity = 2, function = NamedFunction(name = "<Left Argument>", function = lambda x, y: x)),
     '╢'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '╖'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╖'  : Function(arity = 1, function = NamedFunction(name = "<Dequeue>", function = lambda x: force_list(x)[1:])),
     '╕'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╣'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '║'  : Function(arity = 1, function = NamedFunction(name = "<Magnitude>", function = lambda x: sqrt(sum(e * e for e in force_list(x)))), vectorizer = Vectorizer(min_depth = 1)),
+    '║'  : Function(arity = 1, function = NamedFunction(name = "<Magnitude>", function = lambda x: sqrt(sum(e * e for e in force_list(x)))), vectorizer = Vectorizer(min_depth_left = 1)),
     '╗'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╝'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╜'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╛'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '┐'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '└'  : Function(arity = 1, function = NamedFunction(name = "<Floor>", function = math.floor), vectorize = 1),
-    '┴'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '┬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '┴'  : Function(arity = 2, function = NamedFunction(name = "<Convert From Base>", function = from_base), vectorizer = Vectorizer(min_depth_left = 1, min_depth_right = 0)),
+    '┬'  : Function(arity = 2, function = NamedFunction(name = "<Convert To Base>", function = to_base), vectorize = 3),
     '├'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '─'  : Function(arity = 2, function = NamedFunction(name = "<Inclusive Range>", function = lambda x, y: range(math.ceil(x), 1 + math.floor(y))), vectorize = 3),
+    '─'  : Function(arity = 2, function = NamedFunction(name = "<Inclusive Range>", function = lambda x, y: range(math.ceil(x), 1 + math.floor(y)) if y > x else range(math.floor(x), math.ceil(y) - 1, -1)), vectorize = 3),
     '┼'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╞'  : Function(arity = 2, function = NamedFunction(name = "<Get Right Argument>", function = lambda x, y: y)),
-    '╟'  : Function(arity = 1, function = NamedFunction(name = "<Mean>", function = lambda x: sum(force_list(x)) / len(force_list(x))), vectorizer = Vectorizer(min_depth = 1)),
-    '╚'  : Function(arity = 1, function = NamedFunction(name = "<Minimum>", function = lambda x: min(force_list(x))), vectorizer = Vectorizer(min_depth = 1)),
-    '╔'  : Function(arity = 1, function = NamedFunction(name = "<Maximum>", function = lambda x: max(force_list(x))), vectorizer = Vectorizer(min_depth = 1)),
-    '╩'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '╦'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╟'  : Function(arity = 1, function = NamedFunction(name = "<Mean>", function = lambda x: sum(force_list(x)) / len(force_list(x))), vectorizer = Vectorizer(min_depth_left = 1)),
+    '╚'  : Function(arity = 1, function = NamedFunction(name = "<Minimum>", function = lambda x: min(force_list(x))), vectorizer = Vectorizer(min_depth_left = 1)),
+    '╔'  : Function(arity = 1, function = NamedFunction(name = "<Maximum>", function = lambda x: max(force_list(x))), vectorizer = Vectorizer(min_depth_left = 1)),
+    '╩'  : Function(arity = 2, function = NamedFunction(name = "<LCM>", function = LCM)),
+    '╦'  : Function(arity = 2, function = NamedFunction(name = "<GCD>", function = GCD)),
     '╠'  : Function(arity = 1, function = NamedFunction(name = "<Median>", function = median)),
     '═'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╬'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -416,7 +468,7 @@ functions = {
     '╙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╘'  : Function(arity = 2, function = NamedFunction(name = "<Logarithm>", function = sympy.log if SYMPY else math.log), vectorize = 3),
     '╒'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '╓'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '╓'  : Function(arity = 1, function = NamedFunction(name = "<Pop>", function = lambda x: force_list(x)[:-1])),
     '╫'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '╪'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '┘'  : Function(arity = 2, function = NamedFunction(name = "<General Root>", function = lambda x, y: x ** (1 / y)), vectorize = 3),
@@ -451,8 +503,8 @@ functions = {
     '÷'  : Function(arity = 2, function = NamedFunction(name = "<Division>", function = operator.truediv), vectorize = 3),
     '≈'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '°'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '∙'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '·'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '∙'  : None,
+    '·'  : Function(arity = 2, function = NamedFunction(name = "<Dot Product>", function = lambda x, y: sum(i * j for i, j in zip(force_list(x), force_list(y)))), vectorizer = Vectorizer(min_depth_left = 1, min_depth_right = 1)),
     '√'  : Function(arity = 1, function = NamedFunction(name = "<Square Root>", function = sqrt), vectorize = 3),
     'ⁿ'  : Function(arity = 2, function = NamedFunction(name = "<Exponentiation>", function = operator.pow), vectorize = 3),
     '²'  : Function(arity = 1, function = NamedFunction(name = "<Square>", function = lambda x: x * x), vectorize = 1),
@@ -460,7 +512,7 @@ functions = {
     ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 }
 
-overloads = "⌠⌡♪♫☼§"
+overloads = "⌠⌡♪♫☼∙"
 
 def to_i(text):
     if text.startswith("-"):
@@ -500,17 +552,17 @@ real = r"(-?{d}?\.[0-9]*)".format(d = dgts)
 expn = r"{n}?î{n}?".format(n = "({r}|{i})".format(r = real, i = intg))
 cmpx = r"{n}?ì{n}?".format(n = "({e}|{r}|{i})".format(e = expn, r = real, i = intg))
 numr = "(" + "|".join([cmpx, expn, real, intg]) + ")"
-slst = r"(►(([^►◄«»⌐]|\\.)*))+(◄|«|»|⌐)"
-strn = r"►(([^►◄«»⌐]|\\.)*)(◄|«|»|⌐)"
-char = r"◄(.)"
+slst = r"(\"(([^\"'«»⌐]|\\.)*))+('|«|»|⌐)"
+strn = r"\"(([^\"'«»⌐]|\\.)*)('|«|»|⌐)"
+char = r"'(.)"
 litr = "(" + "|".join([char, strn, slst, numr]) + ")"
 ntrn = r"\[*" + litr + r"?(?:(?:\]*,\[*)" + litr + ")*" + r"\]*"
-func = "(" + "|".join(map(re.escape, functions)) + ")"
+func = "(" + "|".join(map(re.escape, [f for f in functions if functions[f] is not None])) + ")"
 spec = "(" + "|".join(map(re.escape, overloads)) + ")"
-pyfn = "⌠.+?[☼♪♫]"
+pyfn = "⌠.+?[☼♪♫⌡]"
 
 def str_eval(type):
-    type = "◄«»⌐".index(type)
+    type = "'«»⌐".index(type)
     if type == 0:
         return lambda code: repr(list(eval('"""%s"""' % code.replace('"', '\\"'))))
     if type == 1:
@@ -521,22 +573,16 @@ def str_eval(type):
 def evalyank(code):
     match = re.match(char, code)
     if match:
-        return (match.group(), "[" + repr(match.group()[1]) + "]")
+        return (match.group(), repr(match.group()[1]))
     match = re.match(strn, code)
     if match:
         return (match.group(), str_eval(match.group()[-1])(match.group()[1:-1]))
     match = re.match(slst, code)
     if match:
-        return (match.group(), list(map(str_eval(match.group()[-1]), re.split(r"(?<!\\)“", match.group()[1:-1]))))
+        return (match.group(), list(map(str_eval(match.group()[-1]), re.split(r"(?<!\\)\"", match.group()[1:-1]))))
     match = re.match(numr, code)
     if match:
         return (match.group(), to_n(match.group()))
-
-def make_list(obj):
-    if hasattr(obj, "__iter__"):
-        return list(obj)
-    else:
-        return obj
 
 def ntrneval(code):
     raw = ""
@@ -548,7 +594,7 @@ def ntrneval(code):
         else:
             raw += code[0]
             code = code[1:]
-    return make_list(eval(raw))
+    return ntype(eval(raw))
 
 
 def ntrnevalmatcher(match):
@@ -559,7 +605,7 @@ matchers = [(m[0], re.compile(m[1]), m[2]) for m in [
     ("ntrn", ntrn, ntrnevalmatcher),
     ("func", func, lambda m: functions[m.group()]),
     ("spec", spec, lambda m: (-2, m.group())),
-    ("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = eval(m.group()[1:-1])))
+    ("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = NamedFunction(name = "<Native Python Function>", function = (lambda s: lambda x=0, y=0: eval(s, x = x, y = y))(m.group()[1:-1]))) if m.group()[-1] in "☼♪♫" else Function(arity = 0, function = (lambda v: lambda: v)(eval(m.group([1:-1]))))),
 ]]
 
 def tokenize(code):
@@ -581,7 +627,7 @@ def tokenize(code):
             code = code[1:]
     return tokens
 
-brackets = "☼§♪§♫§"
+brackets = "☼∙♪∙♫∙"
 
 def parse(tokens):
     result = []
@@ -601,7 +647,7 @@ def parse(tokens):
                         bcount += 1
                 inner.append(tokens[index])
                 index += 1
-            result.append((brackets.find(start) >> 1, parse(inner)))
+            result.append(Function(arity = brackets.find(start) >> 1, function = parse(inner)))
         else:
             result.append(tokens[index])
             index += 1
@@ -646,7 +692,7 @@ def nileval(tokens, layer = 0, nest = False, links = [], index = -1):
 
 @Evaluator
 def moneval(tokens, argument, layer = 0, nest = False, links = [], index = -1):
-    if nest and tokens and not any(map(operator.itemgetter(0), tokens)):
+    if nest and tokens and not any(token.arity for token in tokens):
         values = [nileval([token], layer = layer + 1, nest = False) for token in tokens]
         if argument in values: return values[(values.index(argument) + 1) % len(values)]
         return argument
@@ -749,6 +795,7 @@ def unicode_to_neutrino(string):
     return "".join(chr(codepage.find(char)) for char in str(string).replace("\n", "¶") if char in codepage)
 
 def neutrino_output(argument, end = "\n", transform = stringify):
+    if argument is None: return
     if locale.getdefaultlocale()[1][:3] == "UTF":
         print(transform(argument), end = end)
     else:
