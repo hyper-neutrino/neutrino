@@ -290,12 +290,12 @@ functions = {
     '▼'  : Function(arity = 1, function = NamedFunction(name = "<Decrement>", function = Attempts(lambda x: x - 1, lambda x: chr(ord(x) - 1))), vectorize = 1),
     ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '!'  : Function(arity = 1, function = NamedFunction(name = "<Factorial/Gamma>", function = lambda x: (-1 if x < 0 else 1) * (math.factorial(abs(x)) if (isinstance(x, sympy.Integer) if SYMPY else x % 1 == 0) else type(x)(math.gamma(x + 1))))),
-    '"'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '"'  : None,
     '#'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '$'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '%'  : Function(arity = 2, function = NamedFunction(name = "<Remainder>", function = operator.mod), vectorize = 3),
     '&'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    "'"  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    "'"  : None,
     '('  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     ')'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '*'  : Function(arity = 2, function = NamedFunction(name = "<Multiplication>", function = operator.mul), vectorize = 3),
@@ -500,8 +500,8 @@ functions = {
     '±'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '≥'  : Function(arity = 2, function = NamedFunction(name = "<Greater Than/Equal>", function = operator.ge), vectorize = 3),
     '≤'  : Function(arity = 2, function = NamedFunction(name = "<Less Than/Equal>", function = operator.le), vectorize = 3),
-    '⌠'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '⌡'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '⌠'  : None,
+    '⌡'  : None,
     '÷'  : Function(arity = 2, function = NamedFunction(name = "<Division>", function = operator.truediv), vectorize = 3),
     '≈'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '°'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -514,7 +514,7 @@ functions = {
     ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
 }
 
-overloads = "⌠⌡♪♫☼∙"
+overloads = "♪♫☼∙"
 
 def to_i(text):
     if text.startswith("-"):
@@ -555,9 +555,8 @@ expn = r"{n}?î{n}?".format(n = "({r}|{i})".format(r = real, i = intg))
 cmpx = r"{n}?ì{n}?".format(n = "({e}|{r}|{i})".format(e = expn, r = real, i = intg))
 numr = "(" + "|".join([cmpx, expn, real, intg]) + ")"
 slst = r"(\"(([^\"'«»⌐]|\\.)*))+('|«|»|⌐)"
-strn = r"\"(([^\"'«»⌐]|\\.)*)('|«|»|⌐)"
 char = r"'(.)"
-litr = "(" + "|".join([char, strn, slst, numr]) + ")"
+litr = "(" + "|".join([char, slst, numr]) + ")"
 ntrn = r"\[*" + litr + r"?(?:(?:\]*,\[*)" + litr + ")*" + r"\]*"
 func = "(" + "|".join(map(re.escape, [f for f in functions if functions[f] is not None])) + ")"
 spec = "(" + "|".join(map(re.escape, overloads)) + ")"
@@ -566,9 +565,9 @@ pyfn = "⌠.+?[☼♪♫⌡]"
 def str_eval(type):
     type = "'«»⌐".index(type)
     if type == 0:
-        return lambda code: repr(list(eval('"""%s"""' % code.replace('"', '\\"'))))
+        return lambda code: list(eval('"""%s"""' % code))
     if type == 1:
-        return lambda code: repr(list(map(codepage.index, eval('"""%s"""' % code.replace('"', '\\"')))))
+        return lambda code: list(map(codepage.index, eval('"""%s"""' % code.replace('"', '\\"'))))
     if type == 2:
         return lambda code: (lambda str: "("+"+".join("sympy.Integer("*SYMPY+"250"+")"*SYMPY+"**"+str(len(str)-index-1)+"*"+"sympy.Integer("*SYMPY+repr(codepage.index(char)+1)+")"*SYMPY for index, char in enumerate(str))+")")(eval('"""%s"""' % code.replace('"', '\\"')))
 
@@ -576,9 +575,6 @@ def evalyank(code):
     match = re.match(char, code)
     if match:
         return (match.group(), repr(match.group()[1]))
-    match = re.match(strn, code)
-    if match:
-        return (match.group(), str_eval(match.group()[-1])(match.group()[1:-1]))
     match = re.match(slst, code)
     if match:
         return (match.group(), list(map(str_eval(match.group()[-1]), re.split(r"(?<!\\)\"", match.group()[1:-1]))))
@@ -591,13 +587,12 @@ def ntrneval(code):
     while code:
         yanked = evalyank(code)
         if yanked:
-            raw += yanked[1] + " "
+            raw += repr(yanked[1]) + " "
             code = code[len(yanked[0]):]
         else:
             raw += code[0]
             code = code[1:]
     return ntype(eval(raw))
-
 
 def ntrnevalmatcher(match):
     value = ntrneval(match.group())
@@ -607,7 +602,7 @@ matchers = [(m[0], re.compile(m[1]), m[2]) for m in [
     ("ntrn", ntrn, ntrnevalmatcher),
     ("func", func, lambda m: functions[m.group()]),
     ("spec", spec, lambda m: (-2, m.group())),
-    ("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = NamedFunction(name = "<Native Python Function>", function = (lambda s: lambda x=0, y=0: eval(s, x = x, y = y))(m.group()[1:-1]))) if m.group()[-1] in "☼♪♫" else Function(arity = 0, function = (lambda v: lambda: v)(eval(m.group()[1:-1])))),
+    ("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = NamedFunction(name = "<Native Python Function>", function = (lambda s: lambda x=0, y=0: eval(s, {"x": x, "y": y}))(m.group()[1:-1]))) if m.group()[-1] in "☼♪♫" else Function(arity = 0, function = (lambda v: lambda: v)(eval(m.group()[1:-1])))),
 ]]
 
 def tokenize(code):
@@ -824,4 +819,4 @@ if __name__ == "__main__":
         args = list(map(try_eval, pr_args[:6]))
         for i, e in enumerate(args):
             functions["☺☻♥♦♣♠"[i]] = Function(arity = 0, function = NamedFunction(name = "<Argument %d Nilad>" % i, function = (lambda v: lambda: v)(e)))
-        neutrino_output(neutrino_eval(open(sys.argv[1], "r").read().rstrip("\n"), args))
+        neutrino_output(neutrino_eval(input(), args))
