@@ -15,7 +15,7 @@ import sys, re
 
 cl_arg = re.compile("--?[A-Za-z_]+")
 
-arguments = sys.argv[1:]
+arguments = sys.argv[2:]
 
 cl_args = [arg for arg in arguments if cl_arg.match(arg)]
 pr_args = [arg for arg in arguments if arg not in cl_args]
@@ -127,7 +127,7 @@ class Function:
         self.function = vectorizer(self.arity)(function) if vectorizer else function
         self.vectorize = vectorize
     def __repr__(self):
-        return "[Function(%s) %s]" % (["Nilad", "Monad", "Dyad"][self.arity], self.function)
+        return "{Function(%s) %s}" % (["Nilad", "Monad", "Dyad"][self.arity], self.function)
     def __call__(self, larg = 0, rarg = 0):
         if self.arity == 0:
             return self.function()
@@ -159,7 +159,7 @@ class NamedFunction:
         self.name = name
         self.function = function
     def __repr__(self):
-        return "[NamedFunction %s]" % self.name
+        return "{NamedFunction %s}" % self.name
     def __call__(self, *a, **k):
         return self.function(*a, **k)
 
@@ -824,4 +824,4 @@ if __name__ == "__main__":
         args = list(map(try_eval, pr_args[:6]))
         for i, e in enumerate(args):
             functions["☺☻♥♦♣♠"[i]] = Function(arity = 0, function = NamedFunction(name = "<Argument %d Nilad>" % i, function = (lambda v: lambda: v)(e)))
-        neutrino_output(neutrino_eval(input(), args))
+        neutrino_output(neutrino_eval(open(sys.argv[1], "r").read().rstrip("\n"), args))
