@@ -150,7 +150,7 @@ class Operator:
     def __init__(self, function):
         self.function = function
     def __repr__(self):
-        return "[Operator %s]" % self.function
+        return "{Operator %s}" % self.function
     def __call__(self, s):
         return self.function(s)
 
@@ -288,7 +288,7 @@ functions = {
     '↔'  : Operator(function = NamedFunction(name = "<Map Over Pairs>", function = lambda s: (lambda f: Function(arity = 1, function = NamedFunction(name = "<Map %s Over Pairs>" % f, function = lambda x: (lambda a: [f(q, r) for q, r in zip(a, a[1:])])(force_list(x)))))(s.pop()))),
     '▲'  : Function(arity = 1, function = NamedFunction(name = "<Increment>", function = Attempts(lambda x: x + 1, lambda x: chr(ord(x) + 1))), vectorize = 1),
     '▼'  : Function(arity = 1, function = NamedFunction(name = "<Decrement>", function = Attempts(lambda x: x - 1, lambda x: chr(ord(x) - 1))), vectorize = 1),
-    ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    ' '  : None,
     '!'  : Function(arity = 1, function = NamedFunction(name = "<Factorial/Gamma>", function = lambda x: (-1 if x < 0 else 1) * (math.factorial(abs(x)) if (isinstance(x, sympy.Integer) if SYMPY else x % 1 == 0) else type(x)(math.gamma(x + 1))))),
     '"'  : None,
     '#'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -303,7 +303,7 @@ functions = {
     ','  : Function(arity = 2, function = NamedFunction(name = "<Pair>", function = lambda x, y: (x, y))),
     '-'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '.'  : None,
-    '/'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '/'  : Operator(function = NamedFunction(name = "<LTR Reduce>", function = lambda s: (lambda f: Function(arity = 1, function = NamedFunction(name = "<LTR Reduce over %s>" % f, function = lambda x: functools.reduce(f, force_list(x)))))(s.pop()))),
     '0'  : None,
     '1'  : None,
     '2'  : None,
@@ -348,7 +348,7 @@ functions = {
     'Y'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'Z'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '['  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '\\' : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '\\' : Operator(function = NamedFunction(name = "<RTL Reduce>", function = lambda s: (lambda f: Function(arity = 1, function = NamedFunction(name = "<RTL Reduce over %s>" % f, function = lambda x: functools.reduce(f, force_list(x)[::-1]))))(s.pop()))),
     ']'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '^'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '_'  : Function(arity = 2, function = NamedFunction(name = "<Subtraction>", function = operator.sub), vectorize = 3),
@@ -511,7 +511,7 @@ functions = {
     'ⁿ'  : Function(arity = 2, function = NamedFunction(name = "<Exponentiation>", function = operator.pow), vectorize = 3),
     '²'  : Function(arity = 1, function = NamedFunction(name = "<Square>", function = lambda x: x * x), vectorize = 1),
     '■'  : Function(arity = 1, function = NamedFunction(name = "<Double>", function = lambda x: x * 2), vectorize = 1),
-    ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    ' '  : None,
 }
 
 overloads = "♪♫☼∙"
@@ -577,7 +577,7 @@ def evalyank(code):
         return (match.group(), repr(match.group()[1]))
     match = re.match(slst, code)
     if match:
-        return (match.group(), list(map(str_eval(match.group()[-1]), re.split(r"(?<!\\)\"", match.group()[1:-1]))))
+        return (match.group(), repr(list(map(str_eval(match.group()[-1]), re.split(r"(?<!\\)\"", match.group()[1:-1])))))
     match = re.match(numr, code)
     if match:
         return (match.group(), to_n(match.group()))
@@ -587,7 +587,7 @@ def ntrneval(code):
     while code:
         yanked = evalyank(code)
         if yanked:
-            raw += repr(yanked[1]) + " "
+            raw += yanked[1] + " "
             code = code[len(yanked[0]):]
         else:
             raw += code[0]
