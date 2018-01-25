@@ -30,12 +30,15 @@ for arg in cl_args:
 
 SYMPY = True
 TEST = False
+UTF_8 = False
 
 for argument in cl:
     if argument == "native" or argument == "n":
         SYMPY = False
     if argument == "test":
         TEST = True
+    if argument == "u" or argument == "utf-8":
+        UTF_8 = True
 
 if SYMPY: import sympy
 
@@ -819,4 +822,9 @@ if __name__ == "__main__":
         args = list(map(try_eval, pr_args[:6]))
         for i, e in enumerate(args):
             functions["☺☻♥♦♣♠"[i]] = Function(arity = 0, function = NamedFunction(name = "<Argument %d Nilad>" % i, function = (lambda v: lambda: v)(e)))
-        neutrino_output(neutrino_eval(input(), args))
+        code = open(sys.argv[1], "rb").read()
+        if UTF_8:
+            code = "".join(char for char in code.decode("utf-8").replace("\n", "¶") if char in codepage)
+        else:
+            code = "".join(codepage[i] for i in code)
+        neutrino_output(neutrino_eval(code, args))
