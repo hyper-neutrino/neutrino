@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf8 -*-
 
 # Neutrino Programming Language by HyperNeutrino
 # Parts of this program are taken from Dennis's code for the Jelly programming language,
@@ -243,7 +244,8 @@ def shuffle(array):
     random.shuffle(array)
     return array
 
-GCD = sympy.gcd if SYMPY else math.gcd
+if SYMPY: GCD = sympy.gcd
+else: from fractions import gcd as GCD
 
 def LCM(x, y):
     return x * y / (GCD(x, y) or 1)
@@ -287,7 +289,7 @@ functions = {
     '▲'  : Function(arity = 1, function = NamedFunction(name = "<Increment>", function = Attempts(lambda x: x + 1, lambda x: chr(ord(x) + 1))), vectorize = 1),
     '▼'  : Function(arity = 1, function = NamedFunction(name = "<Decrement>", function = Attempts(lambda x: x - 1, lambda x: chr(ord(x) - 1))), vectorize = 1),
     ' '  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '!'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '!'  : Function(arity = 1, function = NamedFunction(name = "<Factorial/Gamma>", function = lambda x: (-1 if x < 0 else 1) * (math.factorial(abs(x)) if (isinstance(x, sympy.Integer) if SYMPY else x % 1 == 0) else type(x)(math.gamma(x + 1))))),
     '"'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '#'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '$'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -374,7 +376,7 @@ functions = {
     'u'  : Function(arity = 2, function = NamedFunction(name = "<Set Union>", function = lambda x, y: force_list(x) + [e for e in force_list(y) if e not in force_list(x)])),
     'v'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'w'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    'x'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    'x'  : Function(arity = 1, function = NamedFunction(name = "<Signum>", function = lambda x: 1 if x > 0 else 0 if x == 0 else -1), vectorize = 1),
     'y'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'z'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '{'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -605,7 +607,7 @@ matchers = [(m[0], re.compile(m[1]), m[2]) for m in [
     ("ntrn", ntrn, ntrnevalmatcher),
     ("func", func, lambda m: functions[m.group()]),
     ("spec", spec, lambda m: (-2, m.group())),
-    ("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = NamedFunction(name = "<Native Python Function>", function = (lambda s: lambda x=0, y=0: eval(s, x = x, y = y))(m.group()[1:-1]))) if m.group()[-1] in "☼♪♫" else Function(arity = 0, function = (lambda v: lambda: v)(eval(m.group([1:-1]))))),
+    ("pyfn", pyfn, lambda m: Function(arity = "☼♪♫".find(m.group()[-1]), function = NamedFunction(name = "<Native Python Function>", function = (lambda s: lambda x=0, y=0: eval(s, x = x, y = y))(m.group()[1:-1]))) if m.group()[-1] in "☼♪♫" else Function(arity = 0, function = (lambda v: lambda: v)(eval(m.group()[1:-1])))),
 ]]
 
 def tokenize(code):
