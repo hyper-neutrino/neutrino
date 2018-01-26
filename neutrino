@@ -375,8 +375,8 @@ functions = {
     'q'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'r'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     's'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    't'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    'u'  : Function(arity = 2, function = NamedFunction(name = "<Set Union>", function = lambda x, y: force_list(x) + [e for e in force_list(y) if e not in force_list(x)])),
+    'u'  : Function(arity = 2, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    't'  : Function(arity = 0, function = NamedFunction(name = "<Set Union>", function = lambda x, y: force_list(x) + [e for e in force_list(y) if e not in force_list(x)])),
     'v'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'w'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'x'  : Function(arity = 1, function = NamedFunction(name = "<Signum>", function = lambda x: 1 if x > 0 else 0 if x == 0 else -1), vectorize = 1),
@@ -386,7 +386,7 @@ functions = {
     '|'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '}'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     '~'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
-    '⌂'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
+    '⌂'  : None,
     'Ç'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
     'ü'  : Function(arity = 1, function = NamedFunction(name = "<Global Deduplicate>", function = global_deduplicator())),
     'é'  : Function(arity = 0, function = NamedFunction(name = "<TODO>", function = lambda: 0)),
@@ -517,7 +517,7 @@ functions = {
     ' '  : None,
 }
 
-overloads = "♪♫☼∙"
+overloads = "♪♫☼∙⌂"
 
 def to_i(text):
     if text.startswith("-"):
@@ -664,7 +664,7 @@ def preexecute(tokens):
         elif isinstance(token, Operator):
             func_stack.append(token(func_stack))
         else:
-            raise RuntimeError("huh?")
+            # TODO do something to make metaoperators/functions work
     return func_stack
 
 class Evaluator:
