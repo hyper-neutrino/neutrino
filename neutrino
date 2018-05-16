@@ -664,6 +664,7 @@ def preexecute(tokens):
         elif isinstance(token, Operator):
             func_stack.append(token(func_stack))
         else:
+            pass
             # TODO do something to make metaoperators/functions work
     return func_stack
 
